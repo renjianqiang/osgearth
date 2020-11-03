@@ -11,32 +11,32 @@ YOU ARE RESPONSIBLE for abiding by the TERMS AND CONDITIONS outlined at:
 http://readymap.org
 
 -->
-<map name="readymap.org" type="geocentric">
+<Map name="Roads Test">
 
-    <image name="readymap_imagery" driver="tms" visible="true" opacity="0.5">
+    <TMSImage name="readymap_imagery" driver="tms" visible="true" opacity="0.5">
         <url>http://readymap.org/readymap/tiles/1.0.0/7/</url>
-    </image>
+    </TMSImage>
 
-    <image name="Tilekeys" driver="debug" enabled="false">
-    </image>
+    <DebugImage name="Tilekeys" enabled="false"/>
 
-    <road_surface name="road-surface" min_level="14" max_data_level="18">
+    <RoadSurface name="road-surface" min_level="14" max_data_level="18">
         <cache_policy usage="no_cache"/>
         <tile_size>512</tile_size>
-        <feature_source>roads-data</feature_source>
+        <features>roads-data</features>
         <styles>
             <style type="text/css">
                 default {
                    stroke: #ffffff;
-                   stroke-width: 65m;
-                   stroke-image: "../data/road.png";
+                   stroke-width: 20m;
+                   stroke-image: "'../data/road.png'";
                 }
             </style>
         </styles>
-    </road_surface>
+    </RoadSurface>
 
-    <feature_model name="Road verts">
-        <feature_source>roads-data</feature_source>
+    <FeatureModel name="Road verts">
+        <profile>spherical-mercator</profile>
+        <features>roads-data</features>
         <styles>
             <style type="text/css">
                 default {
@@ -49,35 +49,36 @@ http://readymap.org
                 }
             </style>
         </styles>
-    </feature_model>
+    </FeatureModel>
 
-    <feature_model name="Road skeleton" enabled="false">
-        <feature_source>roads-data</feature_source>
+    <FeatureModel name="Road skeleton" enabled="false">
+        <profile>spherical-mercator</profile>
+        <features>roads-data</features>
         <styles>
             <style type="text/css">
                 default {
                     stroke: #00ffff7f;
-                    stroke-width: 65m;
+                    stroke-width: 20m;
                     render-depth-test: false;
                     render-order: 2;
-                    stroke-image: "../data/grid2.png";
+                    render-depth-offset: true;
                 }
             </style>
         </styles>
-    </feature_model>
+    </FeatureModel>
 
-    <feature_source name="roads-data" driver="tfs">
-        <url>http://readymap.org/osm/</url>
+    <XYZFeatures name="roads-data">
+        <url>http://readymap.org/readymap/mbtiles/osm/{z}/{x}/{-y}.pbf</url>
         <min_level>14</min_level>
         <max_level>14</max_level>
         <profile>spherical-mercator</profile>
         <format>pbf</format>
         <filters>
             <script language="javascript">
-              <![CDATA[ ("highway" in feature.properties); ]]>
+                <![CDATA[ ("highway" in feature.properties); ]]>
             </script>
         </filters>
-    </feature_source>
+    </XYZFeatures>
 
     <viewpoints>
         <viewpoint name="45 Lat">
@@ -101,4 +102,4 @@ http://readymap.org
     </viewpoints>
 
     <libraries>osgEarthSplat</libraries>
-</map>
+</Map>

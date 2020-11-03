@@ -18,9 +18,9 @@
 */
 #include <osgViewer/Viewer>
 #include <osgDB/FileNameUtils>
-#include <osgEarthUtil/ExampleResources>
-#include <osgEarthUtil/EarthManipulator>
-#include <osgEarthUtil/Controls>
+#include <osgEarth/ExampleResources>
+#include <osgEarth/EarthManipulator>
+#include <osgEarth/Controls>
 #include <osgEarthSilverLining/SilverLiningNode>
 #include <osgEarth/NodeUtils>
 
@@ -173,9 +173,6 @@ main(int argc, char** argv)
     // create a viewer:
     osgViewer::Viewer viewer(arguments);
 
-    // Tell the database pager to not modify the unref settings
-    viewer.getDatabasePager()->setUnrefImageDataAfterApplyPolicy( false, false );
-
     // install our default manipulator (do this before calling load)
     viewer.setCameraManipulator( new osgEarth::Util::EarthManipulator() );
 
@@ -192,9 +189,6 @@ main(int argc, char** argv)
                 "earth file that does not use a sky already.\n";
             return -1;
         }
-
-        viewer.getCamera()->setNearFarRatio(0.00002);
-        viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
 
         MapNode* mapNode = MapNode::findMapNode( node );
 
@@ -221,7 +215,6 @@ main(int argc, char** argv)
 
         // TODO: uncommenting the callback on the following line results in a crash when SeedClouds is called.
         s_settings.sky = new SilverLiningNode(
-            mapNode->getMapSRS(),
             slOptions,
             new SLCallback() );
 

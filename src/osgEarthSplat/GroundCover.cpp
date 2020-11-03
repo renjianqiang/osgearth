@@ -9,13 +9,14 @@
 #include <osgEarth/ImageLayer>
 #include <osgEarth/ImageUtils>
 #include <osgEarth/VirtualProgram>
-#include <osgEarthSymbology/BillboardSymbol>
+#include <osgEarth/BillboardSymbol>
+#include <osgEarth/Registry>
+#include <osgEarth/Math>
 
 #include <osg/Texture2DArray>
 
 using namespace osgEarth;
 using namespace osgEarth::Splat;
-using namespace osgEarth::Symbology;
 
 #define LC "[GroundCover] "
 
@@ -32,6 +33,7 @@ GroundCoverBiomeOptions::fromConfig(const Config& conf)
             _symbols.push_back(s);
         }
     }
+    conf.get("fill", fill());
 }
 
 Config
@@ -45,20 +47,22 @@ GroundCoverBiomeOptions::getConfig() const
             conf.add(symbolConf);
         }
     }
+    conf.set("fill", fill());
     return conf;
 }
 
 //........................................................................
 
 GroundCoverOptions::GroundCoverOptions(const ConfigOptions& co) :
-ConfigOptions(co),
-_lod(14),
-_maxDistance(1000.0f),
-_density(1.0f),
-_fill(1.0f),
-_wind(0.0f),
-_brightness(1.0f),
-_contrast(0.5f)
+    ConfigOptions(co),
+    //_lod(14),
+    _maxDistance(FLT_MAX),//1000.0f),
+    _density(1.0f),
+    _spacing(25.0f),
+    _fill(1.0f),
+    _wind(0.0f),
+    _brightness(1.0f),
+    _contrast(0.5f)
 {
     fromConfig(_conf);
 }
@@ -69,9 +73,9 @@ GroundCoverOptions::getConfig() const
     Config conf = ConfigOptions::getConfig();
     conf.key() = "groundcover";
     conf.set("name", _name);
-    conf.set("lod", _lod);
     conf.set("max_distance", _maxDistance);
     conf.set("density", _density);
+    conf.set("spacing", _spacing);
     conf.set("fill", _fill);
     conf.set("wind", _wind);
     conf.set("brightness", _brightness);
@@ -90,9 +94,9 @@ void
 GroundCoverOptions::fromConfig(const Config& conf)
 {
     conf.get("name", _name);
-    conf.get("lod", _lod);
     conf.get("max_distance", _maxDistance);
     conf.get("density", _density);
+    conf.get("spacing", _spacing);
     conf.get("fill", _fill);
     conf.get("wind", _wind);
     conf.get("brightness", _brightness);
@@ -109,7 +113,7 @@ GroundCoverOptions::fromConfig(const Config& conf)
 //............................................................................
 
 GroundCover::GroundCover(const GroundCoverOptions& in) :
-_options(in)
+    _options(in)
 {
     //nop
 }
@@ -153,6 +157,21 @@ GroundCover::getTotalNumObjects() const
     }
     return count;
 }
+int
+GroundCover::getTotalNumModels() const
+{
+    int count = 0;
+    for(int i=0; i<_biomes.size(); ++i)
+    {
+        for(int j=0; j<_biomes[i]->getObjects().size(); ++j)
+        {
+            const GroundCoverObject* obj = _biomes[i]->getObjects()[j].get();
+            if (obj->getType() == GroundCoverObject::TYPE_MODEL)
+                ++count;
+        }
+    }
+    return count;
+}
 
 osg::StateSet*
 GroundCover::getOrCreateStateSet()
@@ -161,33 +180,24 @@ GroundCover::getOrCreateStateSet()
     {
         _stateSet = new osg::StateSet();
 
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_windFactor", options().wind().get()));
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_noise", 1.0f));
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_ao", 0.5f));
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_exposure", 1.0f));
-
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_density", options().density().get()));
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_fill", options().fill().get()));
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_maxDistance", options().maxDistance().get()));
-
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_brightness", options().brightness().get()));
-        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_contrast", options().contrast().get()));
+        _stateSet->addUniform(new osg::Uniform("oe_GroundCover_wind", options().wind().get()));
     }
 
     return _stateSet.get();
 }
 
-#define SET_GET_UNIFORM(NAME, UNIFORM) \
-    void GroundCover::set##NAME (float value) { getOrCreateStateSet()->getUniform(UNIFORM)->set(value); } \
-    float GroundCover::get##NAME () const { float value = 0.0f; if (getStateSet()) getStateSet()->getUniform(UNIFORM)->get(value); return value; }
+#define SET_GET_UNIFORM(NAME, PROP, UNIFORM) \
+    void GroundCover::set##NAME (float value) { getOrCreateStateSet()->getUniform(UNIFORM)->set(value); options(). PROP () = value; } \
+    float GroundCover::get##NAME () const { return options(). PROP() .get(); }
 
-SET_GET_UNIFORM(Wind, "oe_GroundCover_windFactor")
-SET_GET_UNIFORM(Density, "oe_GroundCover_density")
-SET_GET_UNIFORM(Fill, "oe_GroundCover_fill")
-SET_GET_UNIFORM(MaxDistance, "oe_GroundCover_maxDistance")
-SET_GET_UNIFORM(Brightness, "oe_GroundCover_brightness")
-SET_GET_UNIFORM(Contrast, "oe_GroundCover_contrast")
+SET_GET_UNIFORM(Wind, wind, "oe_GroundCover_wind")
+SET_GET_UNIFORM(MaxDistance, maxDistance, "oe_GroundCover_maxDistance")
 
+void GroundCover::setSpacing(float value) { options().spacing() = value; }
+float GroundCover::getSpacing() const { return options().spacing().get(); }
+
+void GroundCover::setFill(float value) { options().fill() = value; }
+float GroundCover::getFill() const { return options().fill().get(); }
 
 osg::Shader*
 GroundCover::createShader() const
@@ -195,12 +205,10 @@ GroundCover::createShader() const
     std::stringstream biomeBuf;
     std::stringstream objectsBuf;
     std::stringstream billboardsBuf;
-    //std::stringstream doubleBillboardsBuf;
 
     int totalObjects = getTotalNumObjects();
 
     unsigned numBillboards = 0;
-    //unsigned numDoubleBillboards = 0;
 
     // encode all the biome data.
     biomeBuf << 
@@ -219,9 +227,10 @@ GroundCover::createShader() const
         "    int atlasIndexTop; \n"
         "    float width; \n"
         "    float height; \n"
+        "    float sizeVariation; \n"
         "}; \n"
         "const oe_GroundCover_Billboard oe_GroundCover_billboards[%NUM_BILLBOARDS%] = oe_GroundCover_Billboard[%NUM_BILLBOARDS%](\n";
-    
+
     objectsBuf <<
         "struct oe_GroundCover_Object { \n"
         "    int type; // 0=billboard \n"
@@ -235,19 +244,24 @@ GroundCover::createShader() const
     typedef std::map<osg::Image*, int> ImageSet;
     ImageSet uniqueImages;
 
-    int objectIndex = 0;
     int nextAtlasIndex = 0;
+    unsigned totalNumObjectsInserted = 0;
+
     for(int i=0; i<getBiomes().size(); ++i)
     {
         const GroundCoverBiome* biome = getBiomes()[i].get();
 
         float maxWidth = 0.0f, maxHeight = 0.0f;
-        
-        int firstObjectIndexOfBiome = objectIndex;
+
+        int firstObjectIndexOfBiome = totalNumObjectsInserted;
+
+        // This will be larger than biome->getObjects().size() IF any of the
+        // objects have a weight greater than 1.
+        unsigned numObjectsInsertedInBiome = 0;
 
         for(int j=0; j<biome->getObjects().size(); ++j)
         {
-            const GroundCoverObject* object = biome->getObjects()[j];
+            const GroundCoverObject* object = biome->getObjects()[j].get();
 
             if (object->getType() == GroundCoverObject::TYPE_BILLBOARD)
             {
@@ -288,25 +302,39 @@ GroundCover::createShader() const
                 if (numBillboards > 0)
                     billboardsBuf << ", \n";
 
+                const BillboardSymbol* symbol = bb->_symbol.get();
+
                 billboardsBuf
                     << "    oe_GroundCover_Billboard("
                     << atlasSideIndex << ", " << atlasTopIndex
-                    << ", float(" << bb->_width << ")"
-                    << ", float(" << bb->_height << ")"
+                    << ", float(" << symbol->width().get() << ")"
+                    << ", float(" << symbol->height().get() << ")"
+                    << ", float(" << symbol->sizeVariation().get() << ")"
                     << ")";
 
-                maxWidth = osg::maximum(maxWidth, bb->_width);
-                maxHeight = osg::maximum(maxHeight, bb->_height);
+                maxWidth = osg::maximum(
+                    maxWidth, 
+                    symbol->width().get() + (symbol->width().get()*symbol->sizeVariation().get()));
 
-                objectsBuf 
-                    << (numBillboards>0?",\n":"")
-                    << "   oe_GroundCover_Object("
-                    << (int)object->getType() << ", "
-                    << (int)numBillboards
-                    << ")";
+                maxHeight = osg::maximum(
+                    maxHeight, 
+                    symbol->height().get() + (symbol->height().get()*symbol->sizeVariation().get()));
+
+                // apply the selection weight by adding the object multiple times
+                unsigned weight = osg::maximum(symbol->selectionWeight().get(), 1u);
+                for(unsigned w=0; w<weight; ++w)
+                {
+                    objectsBuf 
+                        << (totalNumObjectsInserted>0?",\n":"")
+                        << "   oe_GroundCover_Object("
+                        << (int)object->getType() << ", "
+                        << (int)numBillboards
+                        << ")";
+                    ++numObjectsInsertedInBiome;
+                    ++totalNumObjectsInserted;
+                }
 
                 ++numBillboards;
-                ++objectIndex;
             }
         }
 
@@ -317,15 +345,23 @@ GroundCover::createShader() const
         // directions, but that's OK since we are rarely if ever going to GPU-cull
         // a billboard at the top of the viewport. -gw
 
+        float fill = biome->fill().isSet() ? biome->fill().get() : options().fill().get();
+
         biomeBuf << "    oe_GroundCover_Biome("
             << firstObjectIndexOfBiome << ", "
-            << biome->getObjects().size() 
+            << numObjectsInsertedInBiome //<< biome->getObjects().size() 
             << ", float(" << options().density().get() << ")"
-            << ", float(" << options().fill().get() << ")"
+            << ", float(" << fill << ")"
             << ", vec2(float(" << maxWidth << "),float(" << maxHeight*2.0f << ")))";
 
         if ( (i+1) < getBiomes().size() )
             biomeBuf << ",\n";
+    }
+
+    if (totalNumObjectsInserted == 0)
+    {
+        OE_WARN << LC << "Shader creation failed; no valid groundcover billboards" << std::endl;
+        return NULL;
     }
 
     biomeBuf
@@ -343,13 +379,13 @@ GroundCover::createShader() const
         << "} \n";
 
     objectsBuf
-        << "void oe_GroundCover_getObject(in int index, out oe_GroundCover_Object output) { \n"
-        << "    output = oe_GroundCover_objects[index]; \n"
+        << "void oe_GroundCover_getObject(in int index, out oe_GroundCover_Object object) { \n"
+        << "    object = oe_GroundCover_objects[index]; \n"
         << "} \n";
-        
+
     billboardsBuf
-        << "void oe_GroundCover_getBillboard(in int index, out oe_GroundCover_Billboard output) { \n"
-        << "    output = oe_GroundCover_billboards[index]; \n"
+        << "void oe_GroundCover_getBillboard(in int index, out oe_GroundCover_Billboard billboard) { \n"
+        << "    billboard = oe_GroundCover_billboards[index]; \n"
         << "} \n";
 
     std::string biomeStr = biomeBuf.str();
@@ -358,19 +394,42 @@ GroundCover::createShader() const
     replaceIn(billboardsStr, "%NUM_BILLBOARDS%", Stringify()<<numBillboards);
 
     std::string objectsStr = objectsBuf.str();
-    replaceIn(objectsStr, "%NUM_OBJECTS%", Stringify() << getTotalNumObjects());
-    
+    replaceIn(objectsStr, "%NUM_OBJECTS%", Stringify() << totalNumObjectsInserted); //getTotalNumObjects());
+
     osg::ref_ptr<ImageLayer> layer;
 
     osg::Shader* shader = new osg::Shader();
-    shader->setName( "GroundCoverLayer" );
+    shader->setName( "GroundCover lookup tables" );
     shader->setShaderSource( Stringify() 
-        << "#version 330\n" 
+        << "#version " GLSL_VERSION_STR "\n"
         << biomeStr << "\n"
         << objectsStr << "\n"
         << billboardsStr << "\n" 
     );
     return shader;
+}
+
+const GroundCoverBiome*
+GroundCover::getBiome(const LandCoverClass* lcClass) const
+{
+    for (int biomeIndex = 0; biomeIndex < getBiomes().size(); ++biomeIndex)
+    {
+        const GroundCoverBiome* biome = getBiomes()[biomeIndex].get();
+        if (!biome->getClasses().empty())
+        {
+            StringVector classes;
+            StringTokenizer(biome->getClasses(), classes, " ", "\"", false);
+
+            for (int i = 0; i < classes.size(); ++i)
+            {
+                if (classes[i] == lcClass->getName())
+                {
+                    return biome;
+                }
+            }
+        }
+    }
+    return NULL;
 }
 
 osg::Shader*
@@ -381,25 +440,19 @@ GroundCover::createPredicateShader(LandCoverDictionary* landCoverDict, LandCover
     std::stringstream buf;
     buf << "#version " GLSL_VERSION_STR "\n";
 
-        if ( !landCoverDict )
+    if ( !landCoverDict )
     {
         buf << defaultCode;
         OE_WARN << LC << "No land cover dictionary; generating default coverage predicate\n";
     }
-    else if ( !layer )
-    {
-        buf << defaultCode;
-        OE_WARN << LC << "No classification layer; generating default coverage predicate\n";
-    }
+    //else if ( !layer )
+    //{
+    //    buf << defaultCode;
+    //    OE_WARN << LC << "No classification layer; generating default coverage predicate\n";
+    //}
     else
     {
-        const std::string& sampler = layer->shareTexUniformName().get();
-        const std::string& matrix  = layer->shareTexMatUniformName().get();
-
-        buf << "uniform sampler2D " << sampler << ";\n"
-            << "uniform mat4 " << matrix << ";\n"
-            << "int oe_GroundCover_getBiomeIndex(in vec4 coords) { \n"
-            << "    float value = textureLod(" << sampler << ", (" << matrix << " * coords).st, 0).r;\n";
+        buf << "int oe_GroundCover_getBiomeIndex(in float code) { \n";
 
         for(int biomeIndex=0; biomeIndex<getBiomes().size(); ++biomeIndex)
         {
@@ -415,7 +468,7 @@ GroundCover::createPredicateShader(LandCoverDictionary* landCoverDict, LandCover
                     const LandCoverClass* lcClass = landCoverDict->getClassByName(classes[i]);
                     if (lcClass)
                     {
-                        buf << "    if (value == " << lcClass->getValue() << ") return " << biomeIndex << "; \n";
+                        buf << "    if (code == " << lcClass->getValue() << ") return " << biomeIndex << "; \n";
                     }
                     else
                     {
@@ -427,25 +480,12 @@ GroundCover::createPredicateShader(LandCoverDictionary* landCoverDict, LandCover
         buf << "    return -1; \n";
         buf << "}\n";
     }
-    
+
     osg::Shader* shader = new osg::Shader();
     shader->setName("oe GroundCover predicate function");
     shader->setShaderSource( buf.str() );
 
     return shader;
-}
-
-namespace
-{
-    int nextPowerOf2(int x) {
-        --x;
-        x |= x >> 1;
-        x |= x >> 2;
-        x |= x >> 4;
-        x |= x >> 8;
-        x |= x >> 16;
-        return x+1;
-    }
 }
 
 osg::Texture*
@@ -462,7 +502,7 @@ GroundCover::createTexture() const
     typedef std::vector<osg::Image*> ImageVector;
     ImageSet uniqueImages;
     ImageVector imagesToAdd;
-    
+
 
     for(int b=0; b<getBiomes().size(); ++b)
     {
@@ -480,7 +520,7 @@ GroundCover::createTexture() const
                     imagesToAdd.push_back(bb->_sideImage.get());
                     uniqueImages.insert(bb->_sideImage.get());
                 }
-            
+
                 if (bb->_topImage.valid() && uniqueImages.find(bb->_topImage.get()) == uniqueImages.end())
                 {
                     imagesToAdd.push_back(bb->_topImage.get());
@@ -489,7 +529,7 @@ GroundCover::createTexture() const
             }
         }
     }
-    
+
     for(unsigned i=0; i<imagesToAdd.size(); ++i)
     {
         osg::Image* image = imagesToAdd[i];
@@ -521,8 +561,12 @@ GroundCover::createTexture() const
     tex->setFilter(tex->MAG_FILTER, tex->LINEAR);
     tex->setWrap  (tex->WRAP_S, tex->CLAMP_TO_EDGE);
     tex->setWrap  (tex->WRAP_T, tex->CLAMP_TO_EDGE);
-    tex->setUnRefImageDataAfterApply( true );
+    tex->setUnRefImageDataAfterApply(Registry::instance()->unRefImageDataAfterApply().get());
     tex->setMaxAnisotropy( 4.0 );
+
+    // Let the GPU do it since we only download this at startup
+    //ImageUtils::generateMipmaps(tex);
+    tex->setUseHardwareMipMapGeneration(true);
 
     return tex;
 }
@@ -550,6 +594,9 @@ GroundCoverBiome::configure(const ConfigOptions& conf, const osgDB::Options* dbo
 
     if ( in.biomeClasses().isSet() )
         setClasses( in.biomeClasses().get() );
+
+    if (in.fill().isSet())
+        fill() = in.fill().get();
 
     for(SymbolVector::const_iterator i = in.symbols().begin(); i != in.symbols().end(); ++i)
     {
@@ -593,7 +640,8 @@ GroundCoverBiome::configure(const ConfigOptions& conf, const osgDB::Options* dbo
             if (!sideImage.valid())
             {
                 OE_WARN << LC << "A billboard is missing the mandatory image" << std::endl;
-                return false;
+                //return false;
+                sideImage = new osg::Image();
             }
 
             // Next process the top image (optional)
@@ -633,11 +681,18 @@ GroundCoverBiome::configure(const ConfigOptions& conf, const osgDB::Options* dbo
 
             if ( sideImage.valid() )
             {
-                getObjects().push_back( new GroundCoverBillboard(
-                    sideImage.get(), topImage.get(),
-                    bs->width().get(), bs->height().get()) );
+                getObjects().push_back( new GroundCoverBillboard(sideImage.get(), topImage.get(), bs) );
             }
+
+            continue;
         } 
+
+        const ModelSymbol* model = dynamic_cast<const ModelSymbol*>(i->get());
+        if (model)
+        {
+            osg::ref_ptr<osg::Node> node = URI(model->url()->evalURI()).getNode(dbo);
+            getObjects().push_back(new GroundCoverModel(node.release()));
+        }
     }
 
     if ( getObjects().size() == 0 )

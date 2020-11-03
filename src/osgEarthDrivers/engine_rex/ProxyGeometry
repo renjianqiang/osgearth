@@ -25,13 +25,15 @@
 #include <osg/Matrix>
 
 #include <osgEarth/TileKey>
+#include <osgEarth/Locators>
 
-namespace osgEarth
-{
-    class MapInfo;
+namespace osgEarth {
+    namespace Support {
+        class MapInfo;
+    }
 }
 
-namespace osgEarth { namespace Drivers { namespace RexTerrainEngine
+namespace osgEarth { namespace REX
 {
     class IndexPool
     {
@@ -58,7 +60,7 @@ namespace osgEarth { namespace Drivers { namespace RexTerrainEngine
 
         void build(void);
         void buildIfNecessary(void) const;
-        
+
         void makeVertices(void);
     private:
         const TileKey  _key;
@@ -71,5 +73,6 @@ namespace osgEarth { namespace Drivers { namespace RexTerrainEngine
         static IndexPool _indexPool;
     };
 
-} } } // namespace osgEarth::Drivers::RexTerrainEngine
+} }
+
 #endif

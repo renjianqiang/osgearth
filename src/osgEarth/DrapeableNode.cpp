@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
- * Copyright 2019 Pelican Mapping
+ * Copyright 2020 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -46,6 +46,7 @@ DrapeableNode::DrapeableNode(const DrapeableNode& rhs, const osg::CopyOp& copy) 
 osg::Group(rhs, copy)
 {
     _drapingEnabled = rhs._drapingEnabled;
+    _updateRequested = rhs._updateRequested;
 }
 
 void

@@ -2,7 +2,7 @@ Building osgEarth
 =================
 
 osgEarth is a cross-platform library. It uses the CMake_ build system.
-You will need **version 2.8** or newer.
+You will need **version 3.0** or newer.
 (This is the same build system that OpenSceneGraph_ uses.)
 
 **Platform specific guides**
@@ -33,15 +33,15 @@ Get the Dependencies
 
 **Required dependencies**
 
-    * OpenSceneGraph_ 3.4 or later
-    * GDAL_ 2.0 or later - Geospatial Data Abstraction Layer
+    * OpenSceneGraph_ 3.6 or later
+    * GDAL_ 2.4 or later - Geospatial Data Abstraction Layer
     * CURL_ - HTTP transfer library (comes with OpenSceneGraph_ 3rd party library distros)
 
 **Recommended pre-built dependencies**
 
+    * Windows: Use vcpkg_ to install required dependencies
     * AlphaPixel_ has pre-built OSG_ and 3rd-party dependencies for various architectures.
     * Pre-built `GDAL binaries`_ for various architectures.
-    * Use vcpkg_ to install required dependencies
 
 **Optional dependencies**: osgEarth will compile without them. Look and decide what you need
 
@@ -53,11 +53,6 @@ Get the Dependencies
 	  Used for accessing sqlite/mbtiles datasets. You may need these tips to create the necessary
 	  .lib file from the .def and .dll files included in the Windows binaries:
 	  http://eli.thegreenplace.net/2009/09/23/compiling-sqlite-on-windows
-
-    * QT_ 5.4 or later - Cross-platform UI framework. Used to built the osgEarthQt support library, which is
-      useful (though not required) for building Qt applications that us osgEarth.  Point the
-      ``QT_QMAKE_EXECUTABLE`` CMake variable to the ``qmake.exe`` you want to use and CMake will
-      populate all the other QT variables.
 
 
 Build it
@@ -97,9 +92,7 @@ Here are a few tips.
 .. _GEOS:           http://trac.osgeo.org/geos/
 .. _GDAL:           http://www.gdal.org/
 .. _GDAL binaries:  http://www.gisinternals.com/
-.. _FWTools:        http://fwtools.maptools.org/
 .. _AlphaPixel:     http://downloads.alphapixel.org/
-.. _Mike Weiblen:   http://mew.cx/osg/
 .. _the forum:      http://forum.osgearth.org
 .. _SQLite:         http://www.sqlite.org/
 .. _vcpkg:          https://github.com/Microsoft/vcpkg

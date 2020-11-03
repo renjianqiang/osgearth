@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Dynamic map generation toolkit for OpenSceneGraph
-* Copyright 2019 Pelican Mapping
+* Copyright 2020 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include <osg/ShapeDrawable>
 #include <osg/Depth>
 #include <osg/PositionAttitudeTransform>
+#include <osgDB/ReadFile>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/GUIEventHandler>
 #include <osgViewer/Viewer>
@@ -36,19 +37,18 @@
 #include <osgEarth/MapNode>
 #include <osgEarth/TerrainEngineNode>
 #include <osgEarth/Viewpoint>
-#include <osgEarthUtil/EarthManipulator>
-#include <osgEarthUtil/Controls>
-#include <osgEarthUtil/ExampleResources>
-#include <osgEarthUtil/LogarithmicDepthBuffer>
-#include <osgEarthUtil/ViewFitter>
-#include <osgEarthAnnotation/AnnotationUtils>
-#include <osgEarthAnnotation/LabelNode>
-#include <osgEarthSymbology/Style>
+#include <osgEarth/EarthManipulator>
+#include <osgEarth/Controls>
+#include <osgEarth/ExampleResources>
+#include <osgEarth/LogarithmicDepthBuffer>
+#include <osgEarth/ViewFitter>
+#include <osgEarth/AnnotationUtils>
+#include <osgEarth/LabelNode>
+#include <osgEarth/Style>
 #include <osgEarth/ScreenSpaceLayout>
 
 using namespace osgEarth::Util;
 using namespace osgEarth::Util::Controls;
-using namespace osgEarth::Annotation;
 
 #define D2R (osg::PI/180.0)
 #define R2D (180.0/osg::PI)
@@ -83,8 +83,6 @@ namespace
             "right mouse :",       "continuous zoom",
             "double-click :",      "zoom to point",
             "scroll wheel :",      "zoom in/out",
-            "arrows :",            "pan",
-            //"1-6 :",               "fly to preset viewpoints",
             "shift-left-mouse :",  "locked pan",
             "u :",                 "toggle azimuth lock",
             "o :",                 "toggle perspective/ortho",
@@ -96,6 +94,8 @@ namespace
             "q :",                 "toggle throwing",
             "k :",                 "toggle collision",
             "L :",                 "toggle log depth buffer"
+            "z :",                 "toggle zoom to mouse pointer"
+            "arrows :",            "adjust tether offset",
         };
 
         Grid* g = new Grid();
@@ -128,10 +128,10 @@ namespace
 
 
     /**
-     * Handler that demonstrates the "viewpoint" functionality in 
-     *  osgEarthUtil::EarthManipulator. Press a number key to fly to a viewpoint.
+     * Handler that demonstrates the "viewpoint" functionality in
+     * EarthManipulator. Press a number key to fly to a viewpoint.
      */
-    struct FlyToViewpointHandler : public osgGA::GUIEventHandler 
+    struct FlyToViewpointHandler : public osgGA::GUIEventHandler
     {
         FlyToViewpointHandler( EarthManipulator* manip ) : _manip(manip) { }
 
@@ -147,14 +147,14 @@ namespace
 
         osg::observer_ptr<EarthManipulator> _manip;
     };
-    
+
 
     /**
      * Toggles the logarithmic depth buffer
      */
     struct ToggleLDB : public osgGA::GUIEventHandler
     {
-        ToggleLDB(char key) : _key(key), _installed(false) { }
+        ToggleLDB(char key) : _key(key), _installed(false), _nfratio(0.0f) { }
 
         bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
         {
@@ -217,6 +217,27 @@ namespace
         char _key;
         osg::Group* _group;
         bool _installed;
+    };
+
+    /**
+    * Toggles whether to zoom towards the mouse pointer.
+    */
+    struct ToggleZoomToMouse : public osgGA::GUIEventHandler
+    {
+        ToggleZoomToMouse(char key, EarthManipulator* manip ) : _key(key), _manip(manip) { }
+
+        bool handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa )
+        {
+            if ( ea.getEventType() == ea.KEYDOWN && ea.getKey() == _key)
+            {
+                _manip->getSettings()->setZoomToMouse(!_manip->getSettings()->getZoomToMouse());
+                return true;
+            }
+            return false;
+        }
+
+        char _key;
+        osg::observer_ptr<EarthManipulator> _manip;
     };
 
     /**
@@ -418,7 +439,7 @@ namespace
         char _key;
         osg::ref_ptr<EarthManipulator> _manip;
     };
-    
+
 
     /**
      * Adjusts the position offset.
@@ -512,7 +533,7 @@ namespace
         osg::ref_ptr<EarthManipulator> _manip;
         double _vfov, _ar, _zn, _zf;
     };
-    
+
     struct FitViewToPoints : public osgGA::GUIEventHandler
     {
         std::vector<GeoPoint> _points;
@@ -553,7 +574,7 @@ namespace
         char _key;
         osg::ref_ptr<EarthManipulator> _manip;
     };
-        
+
 
     /**
      * A simple simulator that moves an object around the Earth. We use this to
@@ -565,7 +586,7 @@ namespace
             : _manip(manip), _mapnode(mapnode), _model(model), _name(name), _key(key), _varyAngles(false)
         {
             if ( !model )
-            { 
+            {
                 _model = AnnotationUtils::createHemisphere(250.0, osg::Vec4(1,.7,.4,1));
             }
 
@@ -577,7 +598,7 @@ namespace
             text->size() = 32.0f;
             text->declutter() = false;
             text->pixelOffset()->set(50, 50);
-            
+
             _label = new LabelNode(_name, style);
             _label->setDynamic( true );
             _label->setHorizonCulling(false);
@@ -617,11 +638,11 @@ namespace
             else if ( ea.getEventType() == ea.KEYDOWN )
             {
                 if ( ea.getKey() == _key )
-                {                                
+                {
                     Viewpoint vp = _manip->getViewpoint();
                     vp.setNode(_label);
-                    vp.range() = 25000.0;
-                    vp.pitch() = -45.0;
+                    vp.range()->set(25000.0, Units::METERS);
+                    vp.pitch()->set(-45.0, Units::DEGREES);
                     _manip->setViewpoint(vp, 2.0);
                 }
                 return true;
@@ -649,7 +670,7 @@ namespace
      * which provides a frame-synched camera matrix (post-update traversal)
      */
     struct CalculateWindowCoords : public osgGA::GUIEventHandler
-                                   
+
     {
         CalculateWindowCoords(char key, EarthManipulator* manip, Simulator* sim)
             : _key(key), _active(false), _sim(sim), _xform(0L)
@@ -711,7 +732,7 @@ namespace
                 aa.requestRedraw();
                 return true;
             }
-            
+
             return false;
         }
 
@@ -732,7 +753,7 @@ namespace
         CalculateWindowCoords* _calc;
 
         CameraUpdater(CalculateWindowCoords* calc) : _calc(calc) { }
-        
+
         void onUpdateCamera(const osg::Camera* cam)
         {
             _calc->onUpdateCamera(cam);
@@ -743,6 +764,8 @@ namespace
 
 int main(int argc, char** argv)
 {
+    osgEarth::initialize();
+
     osg::ArgumentParser arguments(&argc,argv);
 
     if (arguments.read("--help") || argc==1)
@@ -797,14 +820,14 @@ int main(int argc, char** argv)
     sim2->_varyAngles = true;
     viewer.addEventHandler(sim2);
 
-    manip->getSettings()->getBreakTetherActions().push_back( EarthManipulator::ACTION_GOTO );    
+    manip->getSettings()->getBreakTetherActions().push_back( EarthManipulator::ACTION_GOTO );
 
     // Set the minimum distance to something larger than the default
     manip->getSettings()->setMinMaxDistance(10.0, manip->getSettings()->getMaxDistance());
 
     // Sets the maximum focal point offsets (usually for tethering)
     manip->getSettings()->setMaxOffset(5000.0, 5000.0);
-    
+
     // Pitch limits.
     manip->getSettings()->setMinMaxPitch(-90, 90);
 
@@ -821,10 +844,10 @@ int main(int argc, char** argv)
         osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON,
         osgGA::GUIEventAdapter::MODKEY_SHIFT);
 
-    manip->getSettings()->setArcViewpointTransitions( true );    
+    manip->getSettings()->setArcViewpointTransitions( true );
 
     manip->setTetherCallback( new TetherCB() );
-    
+
     //viewer.addEventHandler(new FlyToViewpointHandler( manip ));
     viewer.addEventHandler(new LockAzimuthHandler('u', manip));
     viewer.addEventHandler(new ToggleArcViewpointTransitionsHandler('a', manip));
@@ -837,12 +860,11 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new ToggleLDB('L'));
     viewer.addEventHandler(new ToggleSSL(sims, ')'));
     viewer.addEventHandler(new FitViewToPoints('j', manip, mapNode->getMapSRS()));
-    
+    viewer.addEventHandler(new ToggleZoomToMouse('z', manip));
+
     CalculateWindowCoords* calc = new CalculateWindowCoords('W', manip, sim1);
     viewer.addEventHandler(calc);
     manip->setUpdateCameraCallback(new CameraUpdater(calc));
-
-    viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
 
     while(!viewer.done())
     {

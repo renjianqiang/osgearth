@@ -37,7 +37,7 @@
 
 #include <numeric>
 
-using namespace osgEarth::Drivers::RexTerrainEngine;
+using namespace osgEarth::REX;
 using namespace osgEarth;
 
 #define LC "[SurfaceNode] "
@@ -203,10 +203,7 @@ HorizonTileCuller::isVisible(const osg::Vec3d& from) const
 
 const bool SurfaceNode::_enableDebugNodes = ::getenv("OSGEARTH_REX_DEBUG") != 0L;
 
-SurfaceNode::SurfaceNode(const TileKey&        tilekey,
-                         const MapInfo&        mapinfo,
-                         const RenderBindings& bindings,
-                         TileDrawable*         drawable)
+SurfaceNode::SurfaceNode(const TileKey& tilekey, TileDrawable* drawable)
 {
     _tileKey = tilekey;
 
@@ -242,8 +239,11 @@ SurfaceNode::computeBound() const
 
 float
 SurfaceNode::getPixelSizeOnScreen(osg::CullStack* cull) const
-{
-    double R = _drawable->getRadius() / 1.4142;
+{     
+    // By using the width, the "apparent" pixel size will decrease as we
+    // near the poles.
+    double R = _drawable->getWidth()*0.5;
+    //double R = _drawable->getRadius() / 1.4142;
     return cull->clampedPixelSize(getMatrix().getTrans(), R) / cull->getLODScale();
 }
 
@@ -261,10 +261,7 @@ SurfaceNode::setElevationRaster(const osg::Image*   raster,
         return;
 
     // communicate the raster to the drawable:
-    if ( raster )
-    {
-        _drawable->setElevationRaster( raster, scaleBias );
-    }
+    _drawable->setElevationRaster( raster, scaleBias );
 
     // next compute the bounding box in local space:
     const osg::BoundingBox& box = _drawable->getBoundingBox();
@@ -331,20 +328,22 @@ SurfaceNode::setElevationRaster(const osg::Image*   raster,
     // Transform the child corners to world space
     
     const osg::Matrix& local2world = getMatrix();
-    for(int i=0; i<4; ++i)
+    for (int i = 0; i < 4; ++i)
     {
         VectorPoints& childCorners = _childrenCorners[i];
-         for(int j=0; j<8; ++j)
-         {
-             osg::Vec3& corner = childCorners[j];
-             corner = corner*local2world;
-         }
+        for (int j = 0; j < 8; ++j)
+        {
+            osg::Vec3& corner = childCorners[j];
+            corner = corner * local2world;
+        }
     }
 
     if( _enableDebugNodes )
     {
         removeDebugNode();
         addDebugNode(box);
+        //_debugNode = makeSphere(getBound());
+        //addChild(_debugNode.get());
     }
 
     // Update the horizon culler.

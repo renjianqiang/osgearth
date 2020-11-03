@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
- * Copyright 2019 Pelican Mapping
+ * Copyright 2020 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@
 //#undef  OE_DEBUG
 //#define OE_DEBUG OE_INFO
 
-namespace osgEarth
+namespace osgEarth { namespace Util
 {
     /**
      * Wraps a native glProgram handle so we can earch it form uniforms and
@@ -99,17 +99,20 @@ namespace osgEarth
                 }
             }
 
-#if 0
-            // Apply each of the osg_*Matrix uniforms, which may be used by the native program
-            if (apply(_modelViewMatrixUniform.get(), useProgram))
-                useProgram = false;
-            if (apply(_projectionMatrixUniform.get(), useProgram))
-                useProgram = false;
-            if (apply(_modelViewProjectionMatrixUniform.get(), useProgram))
-                useProgram = false;
-            if (apply(_normalMatrixUniform.get(), useProgram))
-                useProgram = false;
-#endif
+            if (state->getUseModelViewAndProjectionUniforms())
+            {
+                // Apply each of the osg_*Matrix uniforms, which may be used by the native program
+                osg::State* ncState = const_cast<osg::State*>(state);
+
+                if (apply(ncState->getModelViewMatrixUniform(), useProgram))
+                    useProgram = false;
+                if (apply(ncState->getProjectionMatrixUniform(), useProgram))
+                    useProgram = false;
+                if (apply(ncState->getModelViewProjectionMatrixUniform(), useProgram))
+                    useProgram = false;
+                if (apply(ncState->getNormalMatrixUniform(), useProgram))
+                    useProgram = false;
+            }
         }
 
     private:
@@ -150,7 +153,7 @@ namespace osgEarth
         }
     };
 
-}
+} }
 
 #undef LC
 

@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
-* Copyright 2019 Pelican Mapping
+* Copyright 2020 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -23,8 +23,8 @@
 #include <osgViewer/Viewer>
 #include <osgEarth/Notify>
 #include <osgEarth/TerrainEngineNode>
-#include <osgEarthUtil/EarthManipulator>
-#include <osgEarthUtil/ExampleResources>
+#include <osgEarth/EarthManipulator>
+#include <osgEarth/ExampleResources>
 
 #define LC "[viewer] "
 
@@ -34,7 +34,7 @@ using namespace osgEarth::Util;
 int
 usage(const char* name)
 {
-    OE_NOTICE 
+    OE_NOTICE
         << "\nUsage: " << name << " file.earth" << std::endl
         << MapNodeHelper().usage() << std::endl;
 
@@ -48,7 +48,7 @@ struct MyComputeRangeCallback : public osgEarth::ComputeRangeCallback
         osgUtil::CullVisitor* cv = dynamic_cast<osgUtil::CullVisitor*>(&nv);
         if (cv)
         {
-            // This code assumes that the range_mode is PIXEL_SIZE_ON_SCREEN and computes the pixel size on screen 
+            // This code assumes that the range_mode is PIXEL_SIZE_ON_SCREEN and computes the pixel size on screen
             // without just using the vertical field of view.
             float distance = nv.getDistanceToViewPoint(node->getBound().center(),true);
             float radius = node->getBound().radius();
@@ -72,6 +72,7 @@ struct MyComputeRangeCallback : public osgEarth::ComputeRangeCallback
 int
 main(int argc, char** argv)
 {
+    osgEarth::initialize();
     osg::ArgumentParser arguments(&argc,argv);
 
     // help?
@@ -81,26 +82,11 @@ main(int argc, char** argv)
     // create a viewer:
     osgViewer::Viewer viewer(arguments);
 
-    // Tell the database pager to not modify the unref settings
-    viewer.getDatabasePager()->setUnrefImageDataAfterApplyPolicy( false, false );
-
-    // thread-safe initialization of the OSG wrapper manager. Calling this here
-    // prevents the "unsupported wrapper" messages from OSG
-    osgDB::Registry::instance()->getObjectWrapperManager()->findWrapper("osg::Image");
-
     // install our default manipulator (do this before calling load)
     viewer.setCameraManipulator( new EarthManipulator(arguments) );
 
-    // disable the small-feature culling
-    viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
-
-    // set a near/far ratio that is smaller than the default. This allows us to get
-    // closer to the ground without near clipping. If you need more, use --logdepth
-    viewer.getCamera()->setNearFarRatio(0.0001);
-
-
     // load an earth file, and support all or our example command-line options
-    // and earth file <external> tags    
+    // and earth file <external> tags
     osg::Node* node = MapNodeHelper().load( arguments, &viewer );
     if ( node )
     {

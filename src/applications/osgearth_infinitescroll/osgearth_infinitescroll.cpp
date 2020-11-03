@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
-* Copyright 2019 Pelican Mapping
+* Copyright 2020 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -22,11 +22,10 @@
 
 #include <osgViewer/Viewer>
 #include <osgEarth/Notify>
-#include <osgEarthUtil/EarthManipulator>
-#include <osgEarthUtil/ExampleResources>
+#include <osgEarth/EarthManipulator>
+#include <osgEarth/ExampleResources>
 #include <osgEarth/MapNode>
-#include <osgEarth/ThreadingUtils>
-#include <osgEarth/Metrics>
+#include <osgEarth/Threading>
 #include <iostream>
 
 #define LC "[viewer] "
@@ -48,6 +47,8 @@ usage(const char* name)
 int
 main(int argc, char** argv)
 {
+    osgEarth::initialize();
+
     osg::ArgumentParser arguments(&argc,argv);
 
     // help?
@@ -62,23 +63,9 @@ main(int argc, char** argv)
     // create a viewer:
     osgViewer::Viewer viewer(arguments);
 
-    // Tell the database pager to not modify the unref settings
-    viewer.getDatabasePager()->setUnrefImageDataAfterApplyPolicy( true, false );
-
-    // thread-safe initialization of the OSG wrapper manager. Calling this here
-    // prevents the "unsupported wrapper" messages from OSG
-    osgDB::Registry::instance()->getObjectWrapperManager()->findWrapper("osg::Image");
-
     // install our default manipulator (do this before calling load)
     osg::ref_ptr< EarthManipulator > manipulator = new EarthManipulator(arguments);
     viewer.setCameraManipulator( manipulator );
-
-    // disable the small-feature culling
-    viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
-
-    // set a near/far ratio that is smaller than the default. This allows us to get
-    // closer to the ground without near clipping. If you need more, use --logdepth
-    viewer.getCamera()->setNearFarRatio(0.0001);
 
     if ( vfov > 0.0 )
     {
@@ -113,7 +100,7 @@ main(int argc, char** argv)
         osg::Group* root = new osg::Group;
 
         // We're going to draw the map three times so that we can provide an infinite view scrolling left to right.
-        
+
         // The centerMatrix is centered around the eye point.
         osg::MatrixTransform* centerMatrix = new osg::MatrixTransform;
         centerMatrix->addChild( mapNode );
@@ -153,10 +140,10 @@ main(int argc, char** argv)
                 vp.focalPoint() = focalPoint;
                 manipulator->setViewpoint( vp );
             }
-                                    
+
             GeoExtent centerExtent =  mapExtent;
-            
-            // Figure out which direction we need to shift the map extent 
+
+            // Figure out which direction we need to shift the map extent
             float direction = 0.0;
             if (eyeX < mapExtent.xMin())
             {
@@ -178,7 +165,7 @@ main(int argc, char** argv)
                 while (true)
                 {
                     centerExtent = GeoExtent(centerExtent.getSRS(),
-                                   mapExtent.xMin() + offset, mapExtent.yMin(), 
+                                   mapExtent.xMin() + offset, mapExtent.yMin(),
                                    mapExtent.xMax() + offset, mapExtent.yMax());
                     if (eyeX >= centerExtent.xMin() && eyeX <= centerExtent.xMax())
                     {
@@ -193,10 +180,10 @@ main(int argc, char** argv)
             centerMatrix->setMatrix(osg::Matrixd::translate(offset, 0.0, 0.0));
             leftMatrix->setMatrix(osg::Matrixd::translate(offset - mapExtent.width(), 0.0, 0.0));
             rightMatrix->setMatrix(osg::Matrixd::translate(offset + mapExtent.width(), 0.0, 0.0));
-          
+
             viewer.frame();
         }
-        
+
     }
     else
     {

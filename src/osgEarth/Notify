@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
- * Copyright 2019 Pelican Mapping
+ * Copyright 2020 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -59,6 +59,9 @@ namespace osgEarth
 #define OE_GET_TIMER(VAR) osg::Timer::instance()->delta_s( VAR##_oe_timer, osg::Timer::instance()->tick() )
 
 #define OE_DEPRECATED(A, B) OE_WARN << #A << " is deprecated; please use " << #B << std::endl
+
+#define OE_SOFT_ASSERT(EXPR, WHERE) if(!(EXPR)) { OE_WARN << "ASSERTION FAILURE : " << WHERE << " : " #EXPR << std::endl; return; }
+#define OE_SOFT_ASSERT_AND_RETURN(EXPR, WHERE, RETVAL) if(!(EXPR)) { OE_WARN << "ASSERTION FAILURE : " << WHERE << " : " #EXPR << std::endl; return RETVAL; }
 
 extern OSGEARTH_EXPORT void setNotifyHandler(osg::NotifyHandler *handler);
 

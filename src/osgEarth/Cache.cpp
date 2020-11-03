@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
- * Copyright 2019 Pelican Mapping
+ * Copyright 2020 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -69,6 +69,14 @@ CacheSettings::integrateCachePolicy(const optional<CachePolicy>& policy)
 }
 
 void
+CacheSettings::integrateCachePolicy(const CachePolicy& policy)
+{
+    optional<CachePolicy> temp;
+    temp = policy;
+    integrateCachePolicy(temp);
+}
+
+void
 CacheSettings::store(osgDB::Options* readOptions)
 {
     if (readOptions)
@@ -98,17 +106,25 @@ CacheSettings::get(const osgDB::Options* readOptions)
 std::string
 CacheSettings::toString() const
 {
-    return Stringify()
-        << "cache=" << (_cache.valid() ? _cache->className() : "none")
-        << "; policy=" << _policy->usageString()
-        << "; bin=" << (_activeBin.get() ? "yes" : "no");
+    if (_cache.valid() && _policy->isCacheEnabled())
+    {
+        return Stringify()
+            << "[cache=" << (_cache.valid() ? _cache->className() : "none")
+            << "; policy=" << _policy->usageString()
+            << "; bin=" << (_activeBin.get() ? "yes" : "no")
+            << "]";
+    }
+    else
+    {
+        return "[no cache]";
+    }
 }
 
 //------------------------------------------------------------------------
 
 Cache::Cache( const CacheOptions& options ) :
-_ok     ( true ),
-_options( options )
+_options( options ),
+_bins("OE.Cache.bins")
 {
     //nop
 }
@@ -118,9 +134,10 @@ Cache::~Cache()
 }
 
 Cache::Cache( const Cache& rhs, const osg::CopyOp& op ) :
-osg::Object( rhs, op )
+osg::Object( rhs, op ),
+_bins("OE.Cache.bins")
 {
-    _ok = rhs._ok;
+    _status = rhs._status;
 }
 
 CacheBin*
@@ -134,7 +151,7 @@ Cache::getBin( const std::string& binID )
 void
 Cache::removeBin( CacheBin* bin )
 {
-    _bins.remove( bin );
+    _bins.remove( bin->getID() );
 }
 
 namespace

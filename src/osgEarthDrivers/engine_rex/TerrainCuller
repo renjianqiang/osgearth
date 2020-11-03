@@ -22,6 +22,7 @@
 #include "EngineContext"
 #include "TerrainRenderData"
 #include "SelectionInfo"
+#include <osgEarth/Containers>
 
 #include <osg/NodeVisitor>
 #include <osgUtil/CullVisitor>
@@ -29,15 +30,16 @@
 
 using namespace osgEarth;
 
-namespace osgEarth { namespace Drivers { namespace RexTerrainEngine
+namespace osgEarth { namespace REX
 {
     struct LayerExtent
     {
-        LayerExtent() : _computed(false) { }
-        bool _computed;
+        LayerExtent() : _revision(-1) { }
+        osg::observer_ptr<const Layer> _layer;
+        Revision _revision;
         GeoExtent _extent;
     };
-    typedef std::vector<LayerExtent> LayerExtentVector;
+    typedef UnorderedMap<UID, LayerExtent> LayerExtentMap;
 
     /**
      * Node visitor responsible for assembling a TerrainRenderData that 
@@ -52,16 +54,18 @@ namespace osgEarth { namespace Drivers { namespace RexTerrainEngine
         TileNode* _currentTileNode;
         DrawTileCommand* _firstDrawCommandForTile;
         unsigned _orphanedPassesDetected;
+        LayerExtentMap* _layerExtents;
         osgUtil::CullVisitor* _cv;
-        LayerExtentVector* _layerExtents;
         bool _isSpy;
+        std::vector<PatchLayer*> _patchLayers;
+        bool _acceptSurfaceNodes;
 
     public:
         /** A new terrain culler */
         TerrainCuller(osgUtil::CullVisitor* cullVisitor, EngineContext* context);
 
         /** Initialize the culler with a map and a set of render bindings. */
-        void setup(const Map* map, LayerExtentVector& layerExtents, const RenderBindings& bindings);
+        void setup(const Map* map, LayerExtentMap& layerExtents, const RenderBindings& bindings);
 
         /** The active camera */
         osg::Camera* getCamera() { return _camera; }
@@ -91,6 +95,6 @@ namespace osgEarth { namespace Drivers { namespace RexTerrainEngine
 
     };
 
-} } } // namespace 
+} } // namespace 
 
 #endif // OSGEARTH_REX_TERRAIN_CULLER_H

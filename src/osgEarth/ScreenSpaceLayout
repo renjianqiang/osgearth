@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
-* Copyright 2019 Pelican Mapping
+* Copyright 2020 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 
 #include <osgEarth/Common>
 #include <osgEarth/Config>
+#include <osgEarth/Color>
 #include <osg/Drawable>
 #include <osgUtil/RenderLeaf>
 #include <limits.h>
@@ -52,7 +53,8 @@ namespace osgEarth
         /** Constructor */
         ScreenSpaceLayoutData() :
             _priority(0.0f),
-            _pixelOffset(0, 0) { }
+            _pixelOffset(0,0),
+            _fixed(false) { }
 
         /** Decluttering priority - FLT_MAX means don't declutter */
         void setPriority(float value) { _priority = value; }
@@ -61,6 +63,10 @@ namespace osgEarth
         /** Offset from geoposition in screen pixels */
         void setPixelOffset(const osg::Vec2s& value) { _pixelOffset = value; }
         const osg::Vec2s& getPixelOffset() const     { return _pixelOffset; }
+
+        //! Whether the position is fixed (cannot be moved)
+        void setFixed(bool value) { _fixed = value; }
+        bool getFixed() const { return _fixed; }
 
         /** World point for label rotation reference */
         void setAnchorPoint(const osg::Vec3d& value) { _anchorPoint = value; }
@@ -74,6 +80,7 @@ namespace osgEarth
         float      _priority;
         osg::Vec2s _pixelOffset;
         osg::Vec3d _anchorPoint, _refPoint;
+        bool _fixed;
 
     public:
         virtual ~ScreenSpaceLayoutData() { }
@@ -96,6 +103,11 @@ namespace osgEarth
     class OSGEARTH_EXPORT ScreenSpaceLayoutOptions : public ConfigOptions
     {
     public:
+        enum Technique {
+            TECHNIQUE_LABELS,
+            TECHNIQUE_CALLOUTS
+        };
+
         ScreenSpaceLayoutOptions( const ConfigOptions& co =ConfigOptions() )
             : ConfigOptions         ( co ),
               _minAnimAlpha         ( 0.35f ),
@@ -106,7 +118,11 @@ namespace osgEarth
               _sortByDistance       ( true ),
               _snapToPixel          ( false ),
               _maxObjects           ( INT_MAX ),
-              _renderBinNumber      ( 13 )
+              _renderBinNumber      ( 13 ),
+              _technique            ( TECHNIQUE_LABELS ),
+              _leaderLineMaxLen     ( 60 ),
+              _leaderLineColor      ( Color::White ),
+              _leaderLineWidth      ( 1.0f )
         {
             fromConfig(_conf);
         }
@@ -150,6 +166,22 @@ namespace osgEarth
         optional<int>& renderOrder() { return _renderBinNumber; }
         const optional<int>& renderOrder() const { return _renderBinNumber; }
 
+        //! Technique to use for drawing 
+        optional<Technique>& technique() { return _technique; }
+        const optional<Technique>& technique() const { return _technique; }
+
+        //! For callouts, the maximum length of a leader line in pixels
+        optional<float>& leaderLineMaxLength() { return _leaderLineMaxLen; }
+        const optional<float>& leaderLineMaxLength() const { return _leaderLineMaxLen; }
+
+        //! For callouts, the maximum length of a leader line in pixels
+        optional<Color>& leaderLineColor() { return _leaderLineColor; }
+        const optional<Color>& leaderLineColor() const { return _leaderLineColor; }
+
+        //! For callouts, the width of a leader line in pixels
+        optional<float>& leaderLineWidth() { return _leaderLineWidth; }
+        const optional<float>& leaderLineWidth() const { return _leaderLineWidth; }
+
     public:
 
         Config getConfig() const;
@@ -164,6 +196,10 @@ namespace osgEarth
         optional<bool>     _snapToPixel;
         optional<unsigned> _maxObjects;
         optional<int>      _renderBinNumber;
+        optional<Technique> _technique;
+        optional<float>    _leaderLineMaxLen;
+        optional<Color>    _leaderLineColor;
+        optional<float>    _leaderLineWidth;
 
         void fromConfig( const Config& conf );
     };
@@ -209,6 +245,9 @@ namespace osgEarth
          * reverting to the default behavior (which is to sort by distance from the camera).
          */
         static void clearSortFunctor();
+
+        // internal
+        static bool globallyEnabled;
     };
 
 } // namespace osgEarth

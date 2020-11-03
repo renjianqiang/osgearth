@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
- * Copyright 2019 Pelican Mapping
+ * Copyright 2020 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@ namespace osgEarth
      * Drawable that renders lines using the GPU. It will fall back on rendering
      * OpenGL lines when shader-based rendering is unavailable.
      *
-     * Note: If you use this class you must have the oe_ViewportSize
+     * Note: If you use this class you must have the oe_Camera
      * uniform set. MapNode sets it automatically so any LineDrawable under
      * a MapNode is fine. Otherwise, use the osgEarth::InstallViewportSizeUniform
      * callback on your scene graph.
@@ -86,6 +86,13 @@ namespace osgEarth
 
         //! Sets the color of a vertex at index i
         void setColor(unsigned i, const osg::Vec4& color);
+
+        //! Sets whether to use a GPU shader to draw lines. Default=true.
+        //! Set this to false to invoke legacy OpenGL line drawing, which
+        //! may be a bit faster but will not support GL CORE profile or GLES.
+        //! NOTE: Calling this will remove any data you've added to the LineDrawable!
+        void setUseGPU(bool value);
+        bool getUseGPU() const { return _useGPU; }
 
         //! Copy a vertex array into the drawable
         void importVertexArray(const osg::Vec3Array* verts);
@@ -167,6 +174,8 @@ namespace osgEarth
         void setMode(GLenum mode);
         GLenum getMode() const { return _mode; }
 
+        osg::StateSet* getGPUStateSet() const { return _gpuStateSet.get(); }
+
     protected:
 
         //! destructor
@@ -174,7 +183,7 @@ namespace osgEarth
 
     private:
         GLenum _mode;
-        bool _gpu;
+        bool _useGPU;
         osg::Vec4 _color;
         GLint _factor;
         GLushort _pattern;

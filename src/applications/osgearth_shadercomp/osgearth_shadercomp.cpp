@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
-* Copyright 2019 Pelican Mapping
+* Copyright 2020 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -25,7 +25,7 @@
  *
  * By default, osgEarth uses GL shaders to render the terrain. Shader composition is a
  * mechanism by which you can inject custom shader code into osgEarth's shader program
- * pipeline. This gets around the problem of having to duplicate shader code in order 
+ * pipeline. This gets around the problem of having to duplicate shader code in order
  * to add functionality.
  */
 #include <osg/Notify>
@@ -35,14 +35,14 @@
 #include <osgGA/StateSetManipulator>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-#include <osgEarthUtil/EarthManipulator>
+#include <osgEarth/EarthManipulator>
 #include <osgEarth/VirtualProgram>
 #include <osgEarth/Registry>
 #include <osgEarth/Capabilities>
 #include <osgEarth/ShaderUtils>
 #include <osgEarth/FileUtils>
 #include <osgEarth/GLUtils>
-#include <osgEarthUtil/Controls>
+#include <osgEarth/Controls>
 
 using namespace osgEarth;
 using namespace osgEarth::Util::Controls;
@@ -50,7 +50,7 @@ using namespace osgEarth::Util::Controls;
 
 
 int usage( const std::string& msg )
-{    
+{
     OE_NOTICE
         << msg << "\n\n"
         << "USAGE: osgearth_shadercomp \n"
@@ -93,22 +93,24 @@ osg::Geode* makeGeom( float v )
 // Simple function injection test -- turns the earth gray with a haze.
 namespace TEST_1
 {
-    char s_hazeVertShader[] =
-        "#version " GLSL_VERSION_STR "\n"
-        "out vec3 v_pos; \n"
-        "void setup_haze(inout vec4 VertexVIEW) \n"
-        "{ \n"
-        "    v_pos = vec3(VertexVIEW); \n"
-        "} \n";
+    const char* s_hazeVertShader = R"(
+        #version 110
+        out vec3 v_pos;
+        void setup_haze(inout vec4 VertexVIEW)
+        {
+            v_pos = vec3(VertexVIEW);
+        }
+    )";
 
-    char s_hazeFragShader[] =
-        "#version " GLSL_VERSION_STR "\n"
-        "in vec3 v_pos; \n"
-        "void apply_haze(inout vec4 color) \n"
-        "{ \n"
-        "    float dist = clamp( length(v_pos)/1e7, 0.0, 0.75 ); \n"
-        "    color = mix(color, vec4(0.5, 0.5, 0.5, 1.0), dist); \n"
-        "} \n";
+    const char* s_hazeFragShader = R"(
+        #version 110
+        in vec3 v_pos;
+        void apply_haze(inout vec4 color)
+        {
+            float dist = clamp( length(v_pos)/1e7, 0.0, 0.75 );
+            color = mix(color, vec4(0.5, 0.5, 0.5, 1.0), dist);
+        }
+    )";
 
     osg::StateAttribute* createHaze()
     {
@@ -120,7 +122,7 @@ namespace TEST_1
     }
 
     osg::Group* run( osg::Node* earth )
-    {   
+    {
         osg::Group* g = new osg::Group();
         g->addChild( earth );
         g->getOrCreateStateSet()->setAttributeAndModes( createHaze(), osg::StateAttribute::ON );
@@ -133,11 +135,12 @@ namespace TEST_1
 // Tests the VirtualProgram's ShaderComp::AcceptCallback
 namespace TEST_2
 {
-    const char* fragShader =
-        "#version 110\n"
-        "void make_it_red(inout vec4 color) {\n"
-        "    color.r = 1.0;\n"
-        "}\n";
+    const char* fragShader = R"(
+        #version 110
+        void make_it_red(inout vec4 color) {
+            color.r = 1.0;
+        }
+    )";
 
     struct Acceptor : public ShaderComp::AcceptCallback
     {
@@ -156,46 +159,13 @@ namespace TEST_2
     {
         VirtualProgram* vp = VirtualProgram::getOrCreate(node->getOrCreateStateSet());
         vp->setFunction("make_it_red", fragShader, ShaderComp::LOCATION_FRAGMENT_LIGHTING, new Acceptor());
-        
+
         osg::Group* g = new osg::Group();
         g->addChild( node );
         return g;
     }
 }
 
-//-------------------------------------------------------------------------
-
-// Tests the VirtualProgram's min/max range for functions (shader LOD)
-namespace TEST_3
-{
-    const char* fragShader =
-        "#version 110\n"
-        "void make_it_red(inout vec4 color) {\n"
-        "    color.r = 1.0;\n"
-        "}\n";
-
-    osg::Group* run(osg::Node* node)
-    {
-        float radius = osgEarth::SpatialReference::get("wgs84")->getEllipsoid()->getRadiusEquator();
-
-        VirtualProgram* vp = VirtualProgram::getOrCreate(node->getOrCreateStateSet());
-
-        // Install the shader function:
-        vp->setFunction("make_it_red", fragShader, ShaderComp::LOCATION_FRAGMENT_LIGHTING);
-
-        // Set a maximum LOD range for the above function:
-        vp->setFunctionMinRange( "make_it_red", 500000 );
-        vp->setFunctionMaxRange( "make_it_red", 1000000 );
-
-        osg::Group* g = new osg::Group();
-
-        // Install a callback that will convey the LOD range to the shader LOD.
-        g->addCullCallback( new RangeUniformCullCallback() );
-
-        g->addChild( node );
-        return g;
-    }
-}
 //-------------------------------------------------------------------
 
 // Tests memory management by installing and uninstalling shader
@@ -203,11 +173,12 @@ namespace TEST_3
 
 namespace TEST_4
 {
-    const char* fragShader =
-        "#version 110\n"
-        "void make_it_red(inout vec4 color) {\n"
-        "    color.r *= 1.5;\n"
-        "}\n";
+    const char* fragShader = R"(
+        #version 110
+        void make_it_red(inout vec4 color) {
+            color.r *= 1.5;
+        }
+    )";
 
     struct Acceptor : public ShaderComp::AcceptCallback
     {
@@ -271,19 +242,22 @@ namespace TEST_4
 
 namespace TEST_5
 {
-    char s_vert[] =
-        "#version " GLSL_VERSION_STR "\n"
-        "void main() { \n"
-        "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex; \n"
-        "} \n";
-    char s_frag[] =
-        "#version " GLSL_VERSION_STR "\n"
-        "void main() { \n"
-        "    gl_FragColor = vec4(1.0,0.0,0.0,1.0); \n"
-        "} \n";
-    char s_vp[] =
-        "#version " GLSL_VERSION_STR "\n"
-        "void test( inout vec4 color ) { color = vec4(1.0,0.0,0.0,1.0); } \n";
+    char s_vert[] = R"(
+        #version 110
+        void main() {
+            gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+        }
+    )";
+    char s_frag[] = R"(
+        #version 110
+        void main() {
+            gl_FragColor = vec4(1.0,0.0,0.0,1.0);
+        }
+    )";
+    char s_vp[] = R"(
+        #version 110
+        void test( inout vec4 color ) { color = vec4(1.0,0.0,0.0,1.0); };
+    )";
 
     osg::Group* run()
     {
@@ -312,20 +286,22 @@ namespace TEST_5
 // when Accept Callbacks are in play.
 namespace TEST_6
 {
-    const char* fragShader =
-        "#version 110\n"
-        "void make_it_red(inout vec4 color) {\n"
-        "    color.r = 1.0;\n"
-        "}\n";
-    const char* fragShader2 =
-        "#version 110\n"
-        "void make_it_blue(inout vec4 color) {\n"
-        "    color.b = 1.0;\n"
-        "}\n";
+    const char* fragShader = R"(
+        #version 110
+        void make_it_red(inout vec4 color) {
+            color.r = 1.0;
+        }
+    )";
+    const char* fragShader2 = R"(
+        #version 110
+        void make_it_blue(inout vec4 color) {
+            color.b = 1.0;
+        }
+    )";
 
     // This acceptor will only include the fragment shader snippet above
     // when the camera's viewport.x == 0. Normally the Program will only
-    // be applied once in succession. 
+    // be applied once in succession.
     struct Acceptor : public ShaderComp::AcceptCallback
     {
         Acceptor() : _fn(0) { }
@@ -354,7 +330,7 @@ namespace TEST_6
 
         osg::Camera* cam2 = new osg::Camera();
         cam2->setViewport(201, 0, 200, 200);
-        cam2->addChild( group1 );        
+        cam2->addChild( group1 );
 
         osg::Group* group2 = new osg::Group();
         VirtualProgram* vp2 =  VirtualProgram::getOrCreate(group2->getOrCreateStateSet());
@@ -368,7 +344,7 @@ namespace TEST_6
         osg::Camera* cam4 = new osg::Camera();
         cam4->setViewport(201, 201, 200, 200);
         cam4->addChild( group2 );
-        
+
         osg::Group* g = new osg::Group();
         g->addChild( cam1 );
         g->addChild( cam2 );
@@ -383,48 +359,51 @@ namespace TEST_6
 
 namespace TEST_7
 {
-    const char* vert =
-        "#version 120\n"
-        "out float oe_red; \n"
-        "void myVertShader(inout vec4 vertex) { \n"
-        "    oe_red = 1.0; \n"
-        "} \n";
+    const char* vert = R"(
+        #version 120
+        out float oe_red;
+        void myVertShader(inout vec4 vertex) {
+            oe_red = 1.0;
+        };
+    )";
 
-    const char* geom =
-        "#version 330\n"
-        "#pragma vp_name ShaderComp Test 7 Geom Shader (Triangle Viewer)\n"
+    const char* geom = R"(
+        #version 330
+        #pragma vp_name ShaderComp Test 7 Geom Shader (Triangle Viewer)
 
-        "layout(triangles) in; \n"
-        "layout(triangle_strip) out; \n"
-        "layout(max_vertices = 3) out; \n"
-        
-        "void VP_LoadVertex(in int); \n"
-        "void VP_EmitVertex(); \n"
+        layout(triangles) in; \n"
+        layout(triangle_strip) out; \n"
+        layout(max_vertices = 3) out;
 
-        "uniform float osg_FrameTime; \n"
+        void VP_LoadVertex(in int);
+        void VP_EmitVertex();
 
-        "void myGeomShader() \n"
-        "{ \n"
-        "    float strength = 0.25 + sin(osg_FrameTime*2.0)*0.25; \n"
-        "    vec4 cen = (gl_in[0].gl_Position + gl_in[1].gl_Position + gl_in[2].gl_Position)/3.0; \n"        
-        "    for(int i=0; i < 3; ++i ) \n"
-        "    { \n"
-        "        VP_LoadVertex(i); \n"
-        "        vec4 pos = gl_in[i].gl_Position; \n"
-        "        pos += vec4(normalize(cen.xyz-pos.xyz) * distance(cen, pos) * strength, 0.0); \n"
-        "        gl_Position = pos; \n"
-        "        VP_EmitVertex(); \n"
-        "    } \n"
-        "    EndPrimitive(); \n"
-        "} \n";
+        uniform float osg_FrameTime;
 
-    const char* frag =
-        "#version 120\n"
-        "in float oe_red; \n"
-        "void myFragShader(inout vec4 color) \n"
-        "{ \n"
-        "    // nop\n"
-        "} \n";
+        void myGeomShader()
+        {
+            float strength = 0.25 + sin(osg_FrameTime*2.0)*0.25;
+            vec4 cen = (gl_in[0].gl_Position + gl_in[1].gl_Position + gl_in[2].gl_Position)/3.0;
+            for(int i=0; i < 3; ++i )
+            {
+                VP_LoadVertex(i);
+                vec4 pos = gl_in[i].gl_Position;
+                pos += vec4(normalize(cen.xyz-pos.xyz) * distance(cen, pos) * strength, 0.0);
+                gl_Position = pos;
+                VP_EmitVertex();
+            }
+            EndPrimitive();
+        }
+    )";
+
+    const char* frag = R"(
+        #version 120
+        in float oe_red;
+        void myFragShader(inout vec4 color)
+        {
+            // nop
+        }
+    )";
 
     osg::StateAttribute* createVP()
     {
@@ -437,7 +416,7 @@ namespace TEST_7
     }
 
     osg::Group* run( osg::Node* earth )
-    {   
+    {
         osg::Group* g = new osg::Group();
         g->addChild( earth );
         g->getOrCreateStateSet()->setAttribute( createVP() );
@@ -475,7 +454,7 @@ namespace TEST_8
 // This test will turn terrain verts RED if their distance from the earth's
 // center exceeds a certain number. Zoom down to a region where there is a
 // boundary between red verts and normally-colored verts. If you use the 32-bit
-// version of the vertex shader, small movements in the camera will cause 
+// version of the vertex shader, small movements in the camera will cause
 // red triangles to jump in and out as the world vertex position overflows
 // the 32-bit values. If you use the 64-bit version, this no longer happens.
 //
@@ -487,68 +466,70 @@ namespace TEST_9
     osg::Node* run(osg::Node* earthfile)
     {
         // 32-bit vertex shader, for reference only. This shader will exceed
-        // the single-precision capacity and cause "jumping verts" at the 
+        // the single-precision capacity and cause "jumping verts" at the
         // camera make small movements.
-        const char* vs32 =
-            "#version 330 \n"
-            "uniform mat4 osg_ViewMatrixInverse; \n"
-            "flat out float isRed; \n"
+        const char* vs32 = R"(
+            #version 330
+            uniform mat4 osg_ViewMatrixInverse;
+            flat out float isRed;
 
-            "void vertex(inout vec4 v32) \n"
-            "{ \n"
-            "    vec4 world = osg_ViewMatrixInverse * v32; \n"
-            "    world /= world.w; \n"
-            "    float len = length(world); \n"
+            void vertex(inout vec4 v32)
+            {
+                vec4 world = osg_ViewMatrixInverse * v32;
+                world /= world.w;
+                float len = length(world);
 
-            "    const float R = 6371234.5678; \n"
-            
-            "    isRed = 0.0; \n"
-            "    if (len > R) \n"
-            "        isRed = 1.0;"
+                const float R = 6371234.5678;
 
-            "}\n";
+                isRed = 0.0;
+                if (len > R)
+                    isRed = 1.0;
+            }
+        )";
 
         // 64-bit vertex shader. This shader uses a double-precision inverse
         // view matrix and calculates the altitude all in double precision;
-        // therefore the "jumping verts" problem in the 32-bit version is 
-        // resolved. (Mostly-- you will still see the jumping if you view the 
+        // therefore the "jumping verts" problem in the 32-bit version is
+        // resolved. (Mostly-- you will still see the jumping if you view the
         // earth from orbit, because the 32-bit vertex itself is very far from
         // the camera in view coordinates. If that is an issue, you need to pass
         // in 64-bit vertex attributes.)
-        const char* vs64 = 
-            "#version 330 \n"
-            "#extension GL_ARB_gpu_shader_fp64 : enable \n"
-            "uniform dmat4 u_ViewMatrixInverse64; \n"            // must use a 64-bit VMI.
-            "flat out float isRed; \n"
-            "flat out double vary64; \n"                         // just to test shadercomp framework
+        const char* vs64 = R"(
+            #version 330
+            #extension GL_ARB_gpu_shader_fp64 : enable
+            uniform dmat4 u_ViewMatrixInverse64;            // must use a 64-bit VMI.
+            flat out float isRed;
+            flat out double vary64;                         // just to test shadercomp framework
 
-            "void vertex(inout vec4 v32) \n"
-            "{ \n"
-            "    dvec4 v64 = dvec4(v32); \n"                     // upcast to 64-bit, no precision loss
-                                                                 // unless camera is very far away
+            void vertex(inout vec4 v32)
+            {
+                dvec4 v64 = dvec4(v32);                     // upcast to 64-bit, no precision loss
+                                                            // unless camera is very far away
 
-            "    dvec4 world = u_ViewMatrixInverse64 * v64; \n"  // xform into world coords
-            "    world /= world.w; \n"                           // divide by w
-            "    double len = length(world.xyz); \n"             // get double-precision vector length.
+                dvec4 world = u_ViewMatrixInverse64 * v64;  // xform into world coords
+                world /= world.w;                           // divide by w
+                double len = length(world.xyz);             // get double-precision vector length.
 
-            "    const double R = 6371234.5678; \n"              // arbitrary earth radius threshold
-            
-            "    isRed = (len > R) ? 1.0 : 0.0; \n"
-            "}\n";
+                const double R = 6371234.5678;              // arbitrary earth radius threshold
+
+                isRed = (len > R) ? 1.0 : 0.0;
+            }
+        )";
 
         // frag shader: color the terrain red if the incoming varying is non-zero.
-        const char* fs =
-            "#version 330 \n"
-            "#extension GL_ARB_gpu_shader_fp64 : enable \n"
-            "flat in float isRed; \n"
-            "flat in double vary64; \n"
-            "void fragment(inout vec4 color) \n"
-            "{ \n"
-            "    if (isRed > 0.0f) { \n"
-            "        color.r = 1.0; \n"
-            "        color.gb *= 0.5; \n"
-            "    } \n"
-            "} \n";
+        const char* fs = R"(
+            #version 330
+            #extension GL_ARB_gpu_shader_fp64 : enable
+            flat in float isRed;
+            flat in double vary64;
+            void fragment(inout vec4 color)
+            {
+                if (isRed > 0.0f) {
+                    color.r = 1.0;
+                    color.gb *= 0.5;
+                }
+            }
+        )";
 
         // installs a double-precision inverse view matrix for our shader to use.
         struct VMI64Callback : public osg::NodeCallback
@@ -559,7 +540,7 @@ namespace TEST_9
 
                 osg::Uniform* u = new osg::Uniform(osg::Uniform::DOUBLE_MAT4, "u_ViewMatrixInverse64");
                 u->set(cv->getCurrentCamera()->getInverseViewMatrix());
-                
+
                 osg::ref_ptr<osg::StateSet> ss = new osg::StateSet();
                 ss->addUniform(u);
                 cv->pushStateSet(ss.get());
@@ -585,19 +566,20 @@ namespace TEST_9
 
 int main(int argc, char** argv)
 {
+    osgEarth::initialize();
+
     osg::ArgumentParser arguments(&argc,argv);
     osgViewer::Viewer viewer(arguments);
 
     bool test1 = arguments.read("--test1");
     bool test2 = arguments.read("--test2");
-    bool test3 = arguments.read("--test3");
     bool test4 = arguments.read("--test4");
     bool test5 = arguments.read("--test5");
     bool test6 = arguments.read("--test6");
     bool test7 = arguments.read("--test7");
     bool test8 = arguments.read("--test8");
     bool test9 = arguments.read("--test9");
-    bool ok    = test1 || test2 || test3 || test4 || test5 || test6 || test7 || test8||test9;
+    bool ok    = test1 || test2 || test4 || test5 || test6 || test7 || test8||test9;
 
     bool ui = !arguments.read("--noui");
 
@@ -608,7 +590,7 @@ int main(int argc, char** argv)
 
     osg::Group* root = new osg::Group();
     viewer.setSceneData( root );
-    
+
     LabelControl* label = new LabelControl();
     if ( ui )
     {
@@ -620,7 +602,7 @@ int main(int argc, char** argv)
         canvas->addControl(label);
     }
 
-    if ( test1 || test2 || test3 || test4 || test6 )
+    if ( test1 || test2 || test4 || test6 )
     {
         osg::ref_ptr<osg::Node> earthNode = osgDB::readRefNodeFile( "simple.earth" );
         if (!earthNode.valid())
@@ -638,11 +620,6 @@ int main(int argc, char** argv)
             root->addChild( TEST_2::run(earthNode.get()) );
             if (ui) label->setText( "Accept callback test: the map turns red when viewport width > 1000" );
         }
-        else if ( test3 )
-        {
-            root->addChild( TEST_3::run(earthNode.get()) );
-            if (ui) label->setText( "Shader LOD test: the map turns red between 500K and 1M meters altitude" );
-        }
         else if ( test4 )
         {
             root->addChild( TEST_4::run(earthNode.get()) );
@@ -653,7 +630,7 @@ int main(int argc, char** argv)
             root->addChild( TEST_6::run(earthNode.get()) );
             if (ui) label->setText("State Memory Stack test; top row, both=blue. bottom left=red, bottom right=normal.");
         }
-        
+
         viewer.setCameraManipulator( new osgEarth::Util::EarthManipulator() );
     }
     else if ( test5 )
@@ -679,7 +656,7 @@ int main(int argc, char** argv)
         {
             return usage( "Unable to load earth model." );
         }
-        
+
         root->addChild(TEST_9::run(earthNode.get()));
         if (ui) label->setText("DP Shader Test - see code comments");
         viewer.setCameraManipulator( new osgEarth::Util::EarthManipulator() );

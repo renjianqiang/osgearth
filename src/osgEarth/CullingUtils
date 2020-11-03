@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
- * Copyright 2019 Pelican Mapping
+ * Copyright 2020 Pelican Mapping
  * http://osgearth.org
  *
  * osgEarth is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@
 #include <osg/ClipPlane>
 #include <osgUtil/CullVisitor>
 
-namespace osgEarth
+namespace osgEarth { namespace Util
 {    
     /**
      * A customized CCC that works correctly under an RTT camera and also with 
@@ -237,18 +237,19 @@ namespace osgEarth
 
 
     /**
-     * Cull callback for cameras that sets the oe_ViewportSize uniform.
+     * Cull callback for cameras that sets the oe_Camera uniform.
      */
-    class OSGEARTH_EXPORT InstallViewportSizeUniform : public osg::NodeCallback
+    class OSGEARTH_EXPORT InstallCameraUniform : public osg::NodeCallback
     {
     public:
-        META_Object(osgEarth, InstallViewportSizeUniform);
+        META_Object(osgEarth, InstallCameraUniform);
         
         void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
-        InstallViewportSizeUniform() { }
+        InstallCameraUniform() { }
 
-        InstallViewportSizeUniform(const InstallViewportSizeUniform& rhs, const osg::CopyOp& copy) :
+    protected:
+        InstallCameraUniform(const InstallCameraUniform& rhs, const osg::CopyOp& copy) :
             osg::NodeCallback(rhs, copy) { }
     };
 
@@ -267,6 +268,6 @@ namespace osgEarth
         optional<float> _maxAltitude;
         osg::ref_ptr<const SpatialReference> _srs;
     };
-}
+} }
 
 #endif // OSGEARTH_CULLING_UTILS_H

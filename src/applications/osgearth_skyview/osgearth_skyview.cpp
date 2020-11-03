@@ -1,6 +1,6 @@
 /* -*-c++-*- */
 /* osgEarth - Geospatial SDK for OpenSceneGraph
-* Copyright 2019 Pelican Mapping
+* Copyright 2020 Pelican Mapping
 * http://osgearth.org
 *
 * osgEarth is free software; you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include <osgViewer/Viewer>
 #include <osg/CullFace>
 #include <osgEarth/Notify>
-#include <osgEarthUtil/ExampleResources>
+#include <osgEarth/ExampleResources>
 #include "SkyManipulator"
 
 
@@ -35,7 +35,7 @@ using namespace osgEarth::Util;
 int
 usage(const char* name)
 {
-    OE_NOTICE 
+    OE_NOTICE
         << "\nUsage: " << name << " file.earth" << std::endl
         << MapNodeHelper().usage() << std::endl;
 
@@ -45,6 +45,8 @@ usage(const char* name)
 int
 main(int argc, char** argv)
 {
+    osgEarth::initialize();
+
     osg::ArgumentParser arguments(&argc,argv);
 
     // help?
@@ -58,20 +60,6 @@ main(int argc, char** argv)
     // create a viewer:
     osgViewer::Viewer viewer(arguments);
 
-    // Tell the database pager to not modify the unref settings
-    viewer.getDatabasePager()->setUnrefImageDataAfterApplyPolicy( false, false );
-
-    // thread-safe initialization of the OSG wrapper manager. Calling this here
-    // prevents the "unsupported wrapper" messages from OSG
-    osgDB::Registry::instance()->getObjectWrapperManager()->findWrapper("osg::Image");
-
-    // disable the small-feature culling
-    viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
-
-    // set a near/far ratio that is smaller than the default. This allows us to get
-    // closer to the ground without near clipping. If you need more, use --logdepth
-    viewer.getCamera()->setNearFarRatio(0.0001);
-
     if ( vfov > 0.0 )
     {
         double fov, ar, n, f;
@@ -80,15 +68,12 @@ main(int argc, char** argv)
     }
 
     // load an earth file, and support all or our example command-line options
-    // and earth file <external> tags    
+    // and earth file <external> tags
     osg::Node* node = MapNodeHelper().load( arguments, &viewer );
 
     //Set our custom manipulator
     viewer.setCameraManipulator(new SkyManipulator());
-    //viewer.setCameraManipulator( new osgGA::FirstPersonManipulator() );
 
-    
-    
     if ( node )
     {
         // Disable backface culling
@@ -98,7 +83,7 @@ main(int argc, char** argv)
         viewer.setSceneData( node );
         while(!viewer.done())
         {
-            viewer.frame();            
+            viewer.frame();
         }
     }
     else
